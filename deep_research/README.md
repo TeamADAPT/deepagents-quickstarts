@@ -31,11 +31,13 @@ Run Jupyter notebook:
 uv run jupyter notebook research_agent.ipynb
 ```
 
-Run local [LangGraph server](https://langchain-ai.github.io/langgraph/tutorials/langgraph-platform/local-server/):
+Run local [LangGraph server](https://langchain-ai.github.io/langgraph/tutorials/langgraph-platform/local-server/) and simply input your search query:
 
 ```bash
 uv run --extra langgraph langgraph dev
 ```
+
+<img width="2869" height="1512" alt="Screenshot 2025-11-17 at 11 42 59 AM" src="https://github.com/user-attachments/assets/03090057-c199-42fe-a0f7-769704c2124b" />
 
 ## 📚 Resources
 
@@ -49,7 +51,7 @@ By default, `deepagents` uses `"claude-sonnet-4-5-20250929"`. You can customize 
 from langchain.chat_models import init_chat_model
 from deepagents import create_deep_agent
 
-model = init_chat_model("openai:gpt-5.1")
+model = init_chat_model(model="anthropic:claude-sonnet-4-5-20250929", temperature=0.0)
 agent = create_deep_agent(
     model=model,
 )
