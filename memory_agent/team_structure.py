@@ -14,6 +14,7 @@ from tools.git_tools import get_git_tools
 from tools.meta_tools import get_meta_tools
 from tools.infra_tools import get_infra_tools
 from tools.graph_tools import get_graph_tools
+from tools.mongo_tools import get_mongo_tools
 from memory_tools import save_memory, recall_memory
 
 
@@ -26,7 +27,13 @@ class TeamState(TypedDict):
 def get_llm():
     model_name = os.environ.get("MiniMax_M2_MODEL", "minimax-m2")
     base_url = os.environ.get("MiniMax_M2_BASE_URL", "https://api.minimax.io/anthropic")
-    return ChatAnthropic(model=model_name, temperature=0.7, base_url=base_url)
+    api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        # Fallback for testing if env not fully loaded
+        api_key = "dummy_key_for_test"
+    return ChatAnthropic(
+        model=model_name, temperature=0.7, base_url=base_url, api_key=api_key
+    )
 
 
 def create_planner_agent(llm):
@@ -35,6 +42,7 @@ def create_planner_agent(llm):
         + get_file_tools()
         + [save_memory, recall_memory]
         + get_graph_tools()
+        + get_mongo_tools()
     )
     prompt = (
         "You are the Planner Agent. Your job is to break down complex user requests into "
@@ -43,6 +51,7 @@ def create_planner_agent(llm):
         "You have access to 'Deep Memory': "
         "1. Semantic Memory (save_memory/recall_memory) for facts and context. "
         "2. Knowledge Graph (add_graph_node/add_graph_edge/query_graph) for mapping relationships (e.g. dependencies, architecture). "
+        "3. Document Store (save_document/read_document) for large docs and specs. "
         "Always check the Knowledge Graph for existing context before starting a new plan. "
         "Output a clear plan that the Coder Agent can follow."
     )
@@ -186,6 +195,11 @@ def build_team_graph(checkpointer=None):
 
         return {}
 
+    def reflection_node(state: TeamState):
+        from reflection import reflect_on_conversation
+
+        return reflect_on_conversation(state)
+
     workflow = StateGraph(TeamState)
 
     workflow.add_node("ContextRetriever", context_retriever_node)
@@ -193,6 +207,7 @@ def build_team_graph(checkpointer=None):
     workflow.add_node("Coder", coder_node)
     workflow.add_node("Reviewer", reviewer_node)
     workflow.add_node("Supervisor", supervisor_node)
+    workflow.add_node("Reflection", reflection_node)
 
     # Edges
     # Start -> ContextRetriever -> Supervisor
@@ -202,11 +217,19 @@ def build_team_graph(checkpointer=None):
     workflow.add_conditional_edges(
         "Supervisor",
         lambda x: x["next_agent"],
-        {"Planner": "Planner", "Coder": "Coder", "Reviewer": "Reviewer", "FINISH": END},
+        {
+            "Planner": "Planner",
+            "Coder": "Coder",
+            "Reviewer": "Reviewer",
+            "FINISH": "Reflection",
+        },
     )
 
     workflow.add_edge("Planner", "Supervisor")
     workflow.add_edge("Coder", "Supervisor")
     workflow.add_edge("Reviewer", "Supervisor")
+
+    # Reflection -> End
+    workflow.add_edge("Reflection", END)
 
     return workflow.compile(checkpointer=checkpointer)

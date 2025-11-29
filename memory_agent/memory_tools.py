@@ -84,16 +84,26 @@ def save_memory(content: str) -> str:
     client = get_weaviate_client()
     try:
         collection = client.collections.get("AgentMemory")
-        # We are not providing vectors explicitly here, relying on Weaviate's auto-vectorization if configured,
-        # or just storing it. If no vectorizer is configured, this will just be storage.
-        # Given the constraints, we'll assume the Weaviate setup might handle it or we accept keyword search for now.
         import datetime
+
+        # Generate embedding using sentence-transformers
+        vector = None
+        try:
+            from sentence_transformers import SentenceTransformer
+
+            # Use a small, fast model. 'all-MiniLM-L6-v2' is standard but might need download.
+            # We'll try to load it, if it fails we fall back to no vector.
+            model = SentenceTransformer("all-MiniLM-L6-v2")
+            vector = model.encode(content).tolist()
+        except Exception as e:
+            print(f"Embedding generation failed (falling back to keyword only): {e}")
 
         collection.data.insert(
             properties={
                 "content": content,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            }
+            },
+            vector=vector,
         )
         return f"Successfully saved to Weaviate memory: {content}"
     except Exception as e:

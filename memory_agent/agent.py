@@ -105,6 +105,11 @@ def main():
     load_secrets()
     # init_db()
 
+    # Initialize Redis Cache
+    from cache_tools import init_redis_cache
+
+    init_redis_cache()
+
     # Initialize Session Manager
     session_mgr = get_session_manager()
     print(f"Session ID: {session_mgr.get_session_id()}")
