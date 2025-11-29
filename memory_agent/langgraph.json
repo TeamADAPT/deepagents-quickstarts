@@ -1,0 +1,11 @@
+{
+    "dependencies": [
+        "langchain-anthropic",
+        "langgraph",
+        "psycopg2-binary",
+        "langchain-core"
+    ],
+    "graphs": {
+        "memory_agent": "./graph.py:agent"
+    }
+}
