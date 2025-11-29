@@ -65,13 +65,13 @@ def load_secrets():
         # Set a dummy group ID if not present, as some versions might require it but not use it for chat
         os.environ["MINIMAX_GROUP_ID"] = "123456"
 
-    # Set LangSmith keys
-    os.environ["LANGSMITH_TRACING"] = "true"
-    os.environ["LANGSMITH_ENDPOINT"] = "https://api.smith.langchain.com"
-    if "LANGSMITH_API_KEY" not in os.environ:
-        # Placeholder or load from secrets file if needed
-        pass
-    os.environ["LANGSMITH_PROJECT"] = "Deep Agents Memory"
+    # Set LangSmith keys (Standard LangChain naming)
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+    if "LANGCHAIN_API_KEY" not in os.environ and "LANGSMITH_API_KEY" in os.environ:
+        os.environ["LANGCHAIN_API_KEY"] = os.environ["LANGSMITH_API_KEY"]
+
+    os.environ["LANGCHAIN_PROJECT"] = "Deep Agents Memory"
 
 
 def get_postgres_connection_string():

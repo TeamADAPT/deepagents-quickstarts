@@ -147,15 +147,57 @@ def build_team_graph(checkpointer=None):
             print("[Supervisor] No condition met -> Routing to FINISH")
             return {"next_agent": "FINISH"}
 
+    def context_retriever_node(state: TeamState):
+        from middleware import MemoryMiddleware
+
+        middleware = MemoryMiddleware()
+
+        # Process the messages to inject context
+        # Note: In a real immutable state system, we'd create new messages.
+        # Here we are modifying the list in place or returning a new list.
+        # LangGraph appends by default if we return a dict with the key.
+        # But we want to MODIFY the last message or insert before it.
+        # Since 'messages' is Annotated with operator.add, returning messages appends them.
+        # To modify, we might need to be careful.
+        # For this MVP, let's just append a SystemMessage with the context if it's not already there.
+
+        messages = state["messages"]
+        if not messages:
+            return {}
+
+        last_msg = messages[-1]
+        if isinstance(last_msg, HumanMessage):
+            content = last_msg.content
+            if isinstance(content, list):
+                # Handle multimodal content by joining text parts or taking the first text
+                # For simplicity, let's just convert to string representation or extract text
+                content = str(content)
+
+            context = middleware.retrieve_context(content)
+            if context:
+                print("[ContextRetriever] Found context, injecting...")
+                # We return a SystemMessage that will be added to the history
+                # Ideally this should be ephemeral or handled by the agent, but adding it to history works.
+                return {
+                    "messages": [
+                        HumanMessage(content=f"[SYSTEM: Automatic Context]\n{context}")
+                    ]
+                }
+
+        return {}
+
     workflow = StateGraph(TeamState)
 
+    workflow.add_node("ContextRetriever", context_retriever_node)
     workflow.add_node("Planner", planner_node)
     workflow.add_node("Coder", coder_node)
     workflow.add_node("Reviewer", reviewer_node)
     workflow.add_node("Supervisor", supervisor_node)
 
     # Edges
-    workflow.add_edge(START, "Supervisor")
+    # Start -> ContextRetriever -> Supervisor
+    workflow.add_edge(START, "ContextRetriever")
+    workflow.add_edge("ContextRetriever", "Supervisor")
 
     workflow.add_conditional_edges(
         "Supervisor",
