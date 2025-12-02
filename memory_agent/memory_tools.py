@@ -42,7 +42,7 @@ def get_weaviate_client():
         raise
 
 
-def init_memory_collection():
+def init_db():
     """Initializes the Weaviate collection for memories."""
     client = get_weaviate_client()
     try:
